@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BIST30 Risk Portalı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg-0: #030508;
+  --bg-1: #071018;
+  --bg-2: #0d1a2d;
+  --bg-card: rgba(7, 16, 28, 0.9);
+  --border-dim: rgba(0, 180, 230, 0.1);
+  --border-mid: rgba(0, 180, 230, 0.22);
+  --border-bright: rgba(0, 212, 255, 0.45);
+  --cyan: #00d4ff;
+  --gold: #f0c040;
+  --text-1: #d8eef5;
+  --text-2: #6a9ab0;
+  --text-3: #2e5060;
+  --r1: #00ff7f;
+  --r2: #00d4ff;
+  --r3: #ffaa00;
+  --r4: #ff3a3a;
+  --r1a: rgba(0,255,127,.08);
+  --r2a: rgba(0,212,255,.08);
+  --r3a: rgba(255,170,0,.08);
+  --r4a: rgba(255,58,58,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg-0);
+  color:var(--text-1);
+  font-family:'Exo 2',sans-serif;
+  font-size:14px;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,180,230,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,180,230,.04) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;z-index:0;
+}
+
+/* ── LOADER ── */
+#loader{
+  position:fixed;inset:0;z-index:999;
+  background:var(--bg-0);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:2.5rem;transition:opacity .6s ease;
+}
+.loader-logo{
+  font-family:'Orbitron',sans-serif;
+  font-size:3rem;font-weight:900;
+  letter-spacing:.35em;color:var(--cyan);
+  text-shadow:0 0 60px rgba(0,212,255,.4);
+  animation:glow 2.4s ease-in-out infinite;
+}
+@keyframes glow{
+  0%,100%{text-shadow:0 0 40px rgba(0,212,255,.4)}
+  50%{text-shadow:0 0 100px rgba(0,212,255,.8),0 0 30px rgba(0,212,255,.4)}
+}
+.loader-sub{
+  font-family:'Exo 2',sans-serif;
+  font-size:.8rem;font-weight:300;
+  letter-spacing:.18em;color:var(--text-2);
+  text-transform:uppercase;margin-top:-1.8rem;
+}
+.loader-track{
+  width:320px;height:1px;
+  background:var(--border-dim);
+  position:relative;overflow:hidden;
+}
+.loader-fill{
+  position:absolute;top:0;left:0;height:100%;
+  background:linear-gradient(90deg,transparent,var(--cyan),var(--gold),transparent);
+  width:60%;animation:sweep 1.6s ease-in-out infinite;
+}
+@keyframes sweep{
+  0%{transform:translateX(-100%)}
+  100%{transform:translateX(600%)}
+}
+.loader-msg{
+  font-family:'JetBrains Mono',monospace;
+  font-size:.7rem;letter-spacing:.14em;
+  color:var(--text-3);text-transform:uppercase;
+}
+
+/* ── APP ── */
+#app{
+  position:relative;z-index:1;
+  max-width:1640px;margin:0 auto;
+  padding:0 2.5rem 5rem;
+  opacity:0;transition:opacity .7s ease;
+}
+#app.show{opacity:1}
+
+/* ── HEADER ── */
+header{
+  padding:3rem 0 2rem;
+  border-bottom:1px solid var(--border-dim);
+  margin-bottom:2rem;
+  display:flex;align-items:flex-end;
+  justify-content:space-between;gap:1rem;
+}
+.h-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:1.9rem;font-weight:900;
+  letter-spacing:.08em;
+  background:linear-gradient(130deg,var(--cyan) 0%,var(--gold) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;line-height:1;margin-bottom:.5rem;
+}
+.h-sub{color:var(--text-2);font-size:.78rem;font-weight:300;letter-spacing:.06em}
+.h-right{text-align:right}
+.h-clock{font-family:'JetBrains Mono',monospace;font-size:1.55rem;color:var(--cyan);letter-spacing:.04em}
+.h-update{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text-3);letter-spacing:.08em}
+#refresh-btn{
+  background:transparent;border:1px solid var(--border-dim);
+  color:var(--text-3);width:26px;height:26px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .2s;flex-shrink:0;padding:0;
+}
+#refresh-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+#refresh-btn.spinning svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── STATS ── */
+.stats-bar{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:1px;background:var(--border-dim);margin-bottom:1.5rem;
+}
+.stat{background:var(--bg-card);padding:1.1rem 1.6rem;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat:nth-child(1)::before{background:var(--r1)}
+.stat:nth-child(2)::before{background:var(--r2)}
+.stat:nth-child(3)::before{background:var(--r3)}
+.stat:nth-child(4)::before{background:var(--r4)}
+.stat:nth-child(5)::before{background:var(--gold)}
+.stat-lbl{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:.35rem}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.45rem;font-weight:700;color:var(--text-1)}
+
+/* ── SEARCH ── */
+.search-wrap{
+  position:relative;margin-bottom:1rem;
+}
+.search-wrap svg{
+  position:absolute;left:1rem;top:50%;transform:translateY(-50%);
+  pointer-events:none;opacity:.35;
+}
+#search-input{
+  width:100%;max-width:380px;
+  background:var(--bg-card);
+  border:1px solid var(--border-dim);
+  color:var(--text-1);
+  font-family:'JetBrains Mono',monospace;
+  font-size:.82rem;letter-spacing:.04em;
+  padding:.6rem 1rem .6rem 2.75rem;
+  outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+#search-input::placeholder{color:var(--text-3);letter-spacing:.06em}
+#search-input:focus{
+  border-color:var(--border-mid);
+  box-shadow:0 0 0 3px rgba(0,180,230,.07);
+}
+.search-clear{
+  position:absolute;right:.75rem;top:50%;transform:translateY(-50%);
+  background:transparent;border:none;color:var(--text-3);
+  cursor:pointer;font-size:1rem;padding:.2rem;
+  display:none;transition:color .15s;
+}
+.search-clear:hover{color:var(--cyan)}
+.search-clear.visible{display:block}
+#no-results{
+  display:none;padding:3rem;text-align:center;
+  font-family:'JetBrains Mono',monospace;font-size:.78rem;
+  color:var(--text-3);letter-spacing:.1em;
+}
+
+/* ── FILTERS ── */
+.filters{display:flex;gap:.5rem;margin-bottom:1.75rem;flex-wrap:wrap}
+.fbtn{
+  padding:.45rem 1.2rem;background:transparent;
+  border:1px solid var(--border-dim);
+  color:var(--text-2);font-family:'Exo 2',sans-serif;
+  font-size:.78rem;font-weight:500;letter-spacing:.06em;
+  cursor:pointer;transition:all .2s;
+}
+.fbtn:hover{border-color:var(--cyan);color:var(--cyan)}
+.fbtn.on{background:rgba(0,212,255,.1);border-color:var(--cyan);color:var(--cyan)}
+.fbtn[data-f="1"].on{background:var(--r1a);border-color:var(--r1);color:var(--r1)}
+.fbtn[data-f="2"].on{background:var(--r2a);border-color:var(--r2);color:var(--r2)}
+.fbtn[data-f="3"].on{background:var(--r3a);border-color:var(--r3);color:var(--r3)}
+.fbtn[data-f="4"].on{background:var(--r4a);border-color:var(--r4);color:var(--r4)}
+.excel-btn{margin-left:auto;border-color:rgba(0,200,80,.25);color:#00c850}
+.excel-btn:hover{border-color:#00c850;color:#00c850;background:rgba(0,200,80,.08)}
+
+/* ── SECTION LABEL ── */
+.slabel{
+  font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:1rem;
+  display:flex;align-items:center;gap:.75rem;
+}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border-dim)}
+
+/* ── CARDS ── */
+#grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(215px,1fr));
+  gap:1px;background:var(--border-dim);margin-bottom:3rem;
+}
+.card{
+  background:var(--bg-card);padding:1.2rem;
+  cursor:pointer;position:relative;overflow:hidden;
+  transition:transform .22s ease,box-shadow .22s ease;
+  backdrop-filter:blur(4px);
+  user-select:none;-webkit-user-select:none;
+}
+.card::after{
+  content:'';position:absolute;inset:0;
+  opacity:0;transition:opacity .22s;pointer-events:none;
+}
+.card[data-l="1"]::after{background:var(--r1a)}
+.card[data-l="2"]::after{background:var(--r2a)}
+.card[data-l="3"]::after{background:var(--r3a)}
+.card[data-l="4"]::after{background:var(--r4a)}
+.card:hover::after{opacity:1}
+.card:hover{transform:translateY(-3px)}
+.card[data-l="1"]:hover{box-shadow:0 10px 40px rgba(0,255,127,.18)}
+.card[data-l="2"]:hover{box-shadow:0 10px 40px rgba(0,212,255,.18)}
+.card[data-l="3"]:hover{box-shadow:0 10px 40px rgba(255,170,0,.18)}
+.card[data-l="4"]:hover{box-shadow:0 10px 40px rgba(255,58,58,.18)}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border-dim);padding:2rem 0;text-align:center}
+.disclaimer{font-size:.72rem;color:var(--text-3);line-height:1.8;max-width:840px;margin:0 auto 1rem}
+.fmeta{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:rgba(46,80,96,.45);letter-spacing:.1em}
+
+/* ── RANK CHART ── */
+#rank-wrap{background:var(--bg-card);border:1px solid var(--border-dim);margin-bottom:3rem}
+.rchart{padding:1.5rem 2rem 2rem}
+.rch{display:flex;align-items:center;gap:.75rem;padding:1.1rem 0 .6rem;margin-top:.4rem}
+.rch:first-child{padding-top:.4rem}
+.rch-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.rch-lbl{font-size:.62rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;white-space:nowrap}
+.rch-line{flex:1;height:1px}
+.rch-cnt{font-family:'JetBrains Mono',monospace;font-size:.62rem;white-space:nowrap;opacity:.6}
+.rr{display:grid;grid-template-columns:175px 1fr 58px;align-items:center;gap:1.25rem;padding:.32rem .5rem;cursor:default;transition:background .15s;margin:0 -.5rem;border-radius:2px}
+.rr:hover{background:rgba(0,180,230,.05)}
+.rr-lbl{display:flex;flex-direction:column;gap:.1rem;min-width:0}
+.rr-ticker{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:700;letter-spacing:.05em}
+.rr-co{font-size:.6rem;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-track{background:rgba(0,180,230,.07);height:14px;position:relative;border-radius:1px;overflow:hidden}
+.rr-fill{height:100%;border-radius:1px;width:0;transition:width 1.1s cubic-bezier(.22,.68,0,1.12)}
+.rr-score{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-2);text-align:right}
+
+/* ── DETAIL OVERLAY ── */
+#overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(3,5,8,.88);backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;
+  padding:2rem;opacity:0;pointer-events:none;transition:opacity .3s ease;
+}
+#overlay.open{opacity:1;pointer-events:all}
+.dpanel{
+  background:var(--bg-1);border:1px solid var(--border-bright);
+  width:100%;max-width:1200px;max-height:92vh;overflow-y:auto;
+  transform:translateY(24px);transition:transform .3s ease;
+}
+#overlay.open .dpanel{transform:translateY(0)}
+.dhead{
+  padding:1.6rem 2rem;border-bottom:1px solid var(--border-dim);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+}
+.dt-ticker{font-family:'Orbitron',sans-serif;font-size:1.9rem;font-weight:700;letter-spacing:.1em;line-height:1}
+.dt-co{font-size:.88rem;color:var(--text-2);font-weight:300;margin-top:.3rem}
+.dclose{
+  background:transparent;border:1px solid var(--border-dim);
+  color:var(--text-2);width:38px;height:38px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:1.1rem;transition:all .2s;flex-shrink:0;
+}
+.dclose:hover{border-color:var(--cyan);color:var(--cyan)}
+.dmgrid{
+  display:grid;grid-template-columns:repeat(6,1fr);
+  gap:1px;background:var(--border-dim);border-bottom:1px solid var(--border-dim);
+}
+.dm-lbl-wrap{display:flex;align-items:center;gap:.35rem;margin-bottom:.4rem}
+.info-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;border-radius:50%;
+  border:1px solid var(--text-3);color:var(--text-3);
+  font-size:.58rem;font-style:normal;cursor:default;
+  flex-shrink:0;position:relative;
+}
+.info-icon:hover{border-color:var(--cyan);color:var(--cyan)}
+.info-icon:hover .tooltip{opacity:1;pointer-events:auto;transform:translateY(0)}
+.tooltip{
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(4px);
+  background:#0d1a2d;border:1px solid var(--border-mid);
+  color:var(--text-2);font-family:'Exo 2',sans-serif;
+  font-size:.68rem;font-weight:400;line-height:1.5;
+  padding:.55rem .75rem;white-space:nowrap;
+  opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;
+  z-index:10;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+.tooltip::after{
+  content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:#0d1a2d;
+}
+.dm{background:var(--bg-1);padding:1.2rem 1.5rem}
+.dm-lbl{font-size:.6rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text-3);margin-bottom:.4rem}
+.dm-range{margin-top:.5rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.dm-range-item{display:flex;align-items:center;gap:.3rem}
+.dm-range-lbl{font-size:.58rem;letter-spacing:.08em;color:var(--text-3)}
+.dm-range-item span:last-child{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-2)}
+.dm-range-sep{color:var(--text-3);font-size:.7rem}
+.dm-val{font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:700;color:var(--text-1)}
+.dchart-hdr{padding:.9rem 2rem .1rem;font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3)}
+#fc-chart .modebar{background:transparent!important}
+#fc-chart .modebar-btn path{fill:rgba(106,154,176,.5)!important}
+#fc-chart .modebar-btn:hover path{fill:var(--cyan)!important}
+#fc-chart .modebar-btn.active path{fill:var(--cyan)!important}
+.dots{display:flex;align-items:center;justify-content:center;height:280px;gap:.7rem}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);animation:dp 1.3s ease-in-out infinite}
+.dot:nth-child(2){animation-delay:.2s}
+.dot:nth-child(3){animation-delay:.4s}
+@keyframes dp{0%,100%{opacity:.2;transform:scale(.8)}50%{opacity:1;transform:scale(1.3)}}
+.c-in{opacity:0;transform:translateY(8px);animation:cin .38s ease forwards}
+@keyframes cin{to{opacity:1;transform:translateY(0)}}
+
+/* ── CHIP (shared) ── */
+.chip{
+  padding:.32rem .8rem;background:transparent;
+  border:1px solid var(--border-dim);color:var(--text-2);
+  font-family:'JetBrains Mono',monospace;font-size:.72rem;
+  letter-spacing:.04em;cursor:pointer;transition:all .18s;
+}
+.chip:hover{border-color:var(--cyan);color:var(--cyan)}
+.chip.on[data-l="1"]{background:var(--r1a);border-color:var(--r1);color:var(--r1)}
+.chip.on[data-l="2"]{background:var(--r2a);border-color:var(--r2);color:var(--r2)}
+.chip.on[data-l="3"]{background:var(--r3a);border-color:var(--r3);color:var(--r3)}
+.chip.on[data-l="4"]{background:var(--r4a);border-color:var(--r4);color:var(--r4)}
+
+/* ── PORTFOLIO ── */
+#port-wrap{background:var(--bg-card);border:1px solid var(--border-dim);padding:2rem;margin-bottom:3rem}
+.port-chip-hdr{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:.7rem;display:flex;align-items:center;gap:.6rem}
+.reset-btn{margin-left:auto;background:transparent;border:1px solid var(--border-dim);color:var(--text-3);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;padding:.2rem .6rem;cursor:pointer;transition:all .18s}
+.reset-btn:hover{border-color:#ff3a3a;color:#ff3a3a}
+#port-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1.5rem}
+.port-sel-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem}
+.port-sel-lbl{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3)}
+#port-total{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text-2)}
+#port-sel-list{border-top:1px solid var(--border-dim)}
+.psr{display:grid;grid-template-columns:80px 1fr 68px 28px;align-items:center;gap:.75rem;padding:.45rem 0;border-bottom:1px solid var(--border-dim)}
+.psr-tk{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:700}
+.psr-bar{height:3px;background:rgba(0,180,230,.1);border-radius:2px;overflow:hidden}
+.psr-fill{height:100%;border-radius:2px;transition:width .3s}
+.psr-inp{
+  background:transparent;border:1px solid var(--border-dim);
+  color:var(--text-1);font-family:'JetBrains Mono',monospace;
+  font-size:.78rem;text-align:right;padding:.22rem .5rem;width:100%;outline:none;
+}
+.psr-inp:focus{border-color:var(--cyan)}
+.psr-rm{background:transparent;border:none;color:var(--text-3);cursor:pointer;font-size:1rem;padding:0;line-height:1;transition:color .15s}
+.psr-rm:hover{color:#ff3a3a}
+.port-actions{display:flex;gap:.6rem;margin-top:1.2rem;position:relative;z-index:10}
+.port-calc{background:rgba(0,212,255,.1)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
+.port-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border-dim);margin:1.5rem 0 0}
+.pm{background:var(--bg-1);padding:1rem 1.25rem}
+.pm-lbl{font-size:.6rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text-3);margin-bottom:.35rem}
+.pm-val{font-family:'JetBrains Mono',monospace;font-size:1.2rem;font-weight:700;color:var(--text-1)}
+
+/* ── COMPARISON ── */
+#cmp-wrap{background:var(--bg-card);border:1px solid var(--border-dim);padding:2rem;margin-bottom:3rem}
+#cmp-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.75rem}
+.cmp-hint{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text-3);margin-bottom:1rem;letter-spacing:.06em}
+.cmp-table{width:100%;border-collapse:separate;border-spacing:0 1px;margin-top:1.5rem}
+.cmp-table th{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);padding:.55rem 1rem;text-align:left;background:var(--bg-1)}
+.cmp-table td{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--text-2);padding:.55rem 1rem;background:var(--bg-1)}
+.cmp-table td:first-child{font-weight:700}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="loader-logo">BIST30</div>
+  <div class="loader-track"><div class="loader-fill"></div></div>
+  <div class="loader-msg" id="lmsg">Canlı veriler yükleniyor...</div>
+</div>
+
+<div id="app">
+  <header>
+    <div>
+      <div class="h-title">BIST30 RİSK PORTALI</div>
+      <div class="h-sub">Borsa İstanbul · 10 Yıllık Tarihsel Analiz · Yahoo Finance Canlı Veri · Ridge Regression Tahmini</div>
+    </div>
+    <div class="h-right">
+      <div class="h-clock" id="clock">--:--:--</div>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-top:.3rem;justify-content:flex-end">
+        <div class="h-update" id="upd">VERİ BEKLENİYOR</div>
+        <button id="refresh-btn" onclick="triggerRefresh()" title="Verileri yenile">
+          <svg id="refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input id="search-input" type="text" placeholder="HİSSE ARA — AKBNK, Garanti, THY...">
+    <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
+  </div>
+
+  <div class="filters">
+    <button class="fbtn on" data-f="all">Tümü</button>
+    <button class="fbtn" data-f="1">Defansif</button>
+    <button class="fbtn" data-f="2">Dengeli</button>
+    <button class="fbtn" data-f="3">Dinamik</button>
+    <button class="fbtn" data-f="4">Agresif</button>
+    <button class="fbtn excel-btn" id="excel-btn" onclick="exportExcel()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:.4rem;vertical-align:middle">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+      Excel'e Aktar
+    </button>
+  </div>
+
+  <div class="slabel">Hisse Senedi Risk Kartları</div>
+  <div id="grid"></div>
+  <div id="no-results">ARAMANIZLA EŞLEŞİYOR HİSSE BULUNAMADI</div>
+
+  <div class="slabel">Risk Sıralaması — Tüm Hisseler</div>
+  <div id="rank-wrap"></div>
+
+  <!-- ── PORTFOLIO ── -->
+  <div class="slabel">Portföy Simülatörü</div>
+  <div id="port-wrap">
+    <div class="port-chip-hdr">
+      Hisse Seç
+      <span id="port-count" style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:.7rem">0 / 10</span>
+      <button class="reset-btn" onclick="resetPortfolio()">↺ Sıfırla</button>
+    </div>
+    <div id="port-chips"></div>
+    <div id="port-selected-wrap" style="display:none">
+      <div class="port-sel-hdr">
+        <span class="port-sel-lbl">Ağırlıklar</span>
+        <span id="port-total">Toplam: 0%</span>
+      </div>
+      <div id="port-sel-list"></div>
+      <div class="port-actions">
+        <button class="fbtn" onclick="equalizeWeights()">Eşit Ağırlık</button>
+        <button class="fbtn port-calc" onclick="calcPortfolio()">Portföyü Hesapla</button>
+      </div>
+    </div>
+    <div id="port-results" style="display:none"></div>
+  </div>
+
+  <!-- ── COMPARISON ── -->
+  <div class="slabel">Hisse Karşılaştırma</div>
+  <div id="cmp-wrap">
+    <div class="port-chip-hdr">Karşılaştır <span style="color:var(--text-3);font-family:'JetBrains Mono',monospace;font-size:.68rem">— maks. 4 hisse</span>
+      <button class="reset-btn" onclick="resetComparison()">↺ Sıfırla</button>
+    </div>
+    <div id="cmp-chips"></div>
+    <div class="cmp-hint" id="cmp-hint">En az 2 hisse seç</div>
+    <div id="cmp-chart"></div>
+    <div id="cmp-table-wrap"></div>
+  </div>
+
+  <footer>
+    <p class="disclaimer">Bu portalda sunulan analizler; yalnızca tarihsel fiyat verilerine dayalı istatistiksel hesaplamalar ve makine öğrenmesi tahminlerinden ibarettir. Veriler Yahoo Finance aracılığıyla canlı olarak çekilmekte olup tüm sonuçlar tamamen <strong>akademik</strong> amaçlıdır. Hiçbir içerik yatırım tavsiyesi niteliği taşımaz.</p>
+  </footer>
+</div>
+
+<div id="overlay" onclick="overlayClick(event)">
+  <div class="dpanel" id="dpanel">
+    <div class="dhead">
+      <div>
+        <div class="dt-ticker" id="dt-ticker">—</div>
+        <div class="dt-co" id="dt-co">—</div>
+      </div>
+      <button class="dclose" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="dmgrid">
+      <div class="dm">
+        <div class="dm-lbl-wrap">
+          <span class="dm-lbl">Güncel Fiyat</span>
+          <i class="info-icon">i
+            <span class="tooltip" id="dm-52w-tip">—</span>
+          </i>
+        </div>
+        <div class="dm-val" id="dm-price">—</div>
+      </div>
+      <div class="dm">
+        <div class="dm-lbl-wrap">
+          <span class="dm-lbl">Yıllık Volatilite</span>
+          <i class="info-icon">i
+            <span class="tooltip">Fiyatın yıllık bazda ne kadar dalgalandığını gösterir.<br>Yüksek volatilite = daha riskli, daha büyük fiyat hareketleri.</span>
+          </i>
+        </div>
+        <div class="dm-val" id="dm-vol">—</div>
+      </div>
+      <div class="dm"><div class="dm-lbl">Maks. Drawdown</div><div class="dm-val" id="dm-dd">—</div></div>
+      <div class="dm"><div class="dm-lbl">Risk Skoru</div><div class="dm-val" id="dm-score">—</div></div>
+      <div class="dm"><div class="dm-lbl">Kategori</div><div class="dm-val" id="dm-cat">—</div></div>
+      <div class="dm">
+        <div class="dm-lbl">2026 Yıl Sonu Tahmini</div>
+        <div class="dm-val" id="dye-price" style="color:var(--gold)">—</div>
+        <div id="dye-chg" class="dye-chg" style="margin-top:.3rem;font-family:'JetBrains Mono',monospace;font-size:.78rem"></div>
+      </div>
+    </div>
+    <div class="dchart-hdr">Fiyat Geçmişi · Backtest · 2026 Yıl Sonu Tahmini (Ridge Regression)</div>
+    <div id="fc-chart"></div>
+  </div>
+</div>
+
+<script>
+/*
+ * BIST30 Risk Portalı — Frontend (Vanilla JS)
+ * =============================================
+ * Bu dosya tek sayfalık uygulamanın tüm arayüz mantığını içerir.
+ * Dış bağımlılıklar: Plotly.js (grafikler), SheetJS (Excel export), DOMPurify (XSS koruması)
+ *
+ * Ana bölümler:
+ *   1. Sabit veriler ve yardımcı fonksiyonlar
+ *   2. Hisse kartları ve sıralama (risk tablosu)
+ *   3. Kategori filtreleme ve arama
+ *   4. Hisse detay kartı ve Ridge Regression tahmin grafiği
+ *   5. Portföy Simülatörü (kovaryans bazlı analiz)
+ *   6. Hisse Karşılaştırma (radar grafik)
+ *   7. Excel dışa aktarma
+ *   8. Veri yükleme ve otomatik yenileme
+ */
+
+/* ── SABİT VERİLER ── */
+// Her ticker koduna karşılık gelen tam şirket adı (arayüzde gösterim için)
+const CO = {
+  AKBNK:"Akbank T.A.Ş.", ARCLK:"Arçelik A.Ş.", ASELS:"Aselsan A.Ş.",
+  BIMAS:"BİM Birleşik Mağazalar", DOHOL:"Doğan Holding A.Ş.",
+  EKGYO:"Emlak Konut GYO", ENKAI:"Enka İnşaat A.Ş.",
+  EREGL:"Ereğli Demir Çelik", FROTO:"Ford Otosan A.Ş.",
+  GARAN:"Garanti BBVA A.Ş.", GUBRF:"Gübre Fabrikaları T.A.Ş.",
+  HALKB:"Halkbank A.Ş.", ISCTR:"İş Bankası A.Ş.",
+  KCHOL:"Koç Holding A.Ş.", KRDMD:"Kardemir A.Ş.",
+  MGROS:"Migros Ticaret A.Ş.", PETKM:"Petkim A.Ş.",
+  PGSUS:"Pegasus Hava Yolları", SAHOL:"Sabancı Holding A.Ş.",
+  SASA:"Sasa Polyester A.Ş.", SISE:"Şişecam A.Ş.",
+  TAVHL:"TAV Havalimanları A.Ş.", TCELL:"Turkcell İletişim A.Ş.",
+  THYAO:"Türk Hava Yolları A.O.", TKFEN:"Tekfen Holding A.Ş.",
+  TOASO:"Tofaş Oto. Fab. A.Ş.", TUPRS:"Tüpraş A.Ş.",
+  YKBNK:"Yapı ve Kredi Bankası A.Ş."
+};
+// Risk kategorisi → renk kodu (1=yeşil Defansif, 2=mavi Dengeli, 3=turuncu Dinamik, 4=kırmızı Agresif)
+const RC = {1:"#00ff7f",2:"#00d4ff",3:"#ffaa00",4:"#ff3a3a"};
+let allData = [], activeF = "all"; // allData: API'den gelen tüm hisse verisi
+
+/* ── CANLI SAAT ── */
+// Her saniye güncellenen dijital saat (Türkçe locale ile HH:MM:SS formatında)
+setInterval(()=>{
+  document.getElementById("clock").textContent =
+    new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+},1000);
+
+/* ── MİNİGRAFİK (SPARKLINE) ── */
+// Son 60 günlük fiyat hareketini gösteren küçük çizgi grafik.
+// Sayısal veriden SVG oluşturulur; innerHTML kullanılmadan önce DOMPurify ile temizlenir.
+function buildSparkSVG(data, color, up){
+  const W=200, H=34;
+  const mn=Math.min(...data), mx=Math.max(...data), r=mx-mn||1;
+  const pts=data.map((v,i)=>`${(i/(data.length-1))*W},${H-((v-mn)/r)*(H-4)-2}`).join(" ");
+  const c=up?color:"#ff6b6b";
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">` +
+    `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.5"` +
+    ` stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>` +
+    `</svg>`;
+}
+
+/* ── HİSSE KARTI ── */
+// Her hisse için bir kart DOM elementi oluşturur.
+// Güvenlik: kullanıcıdan gelmeyen veriler bile DOM API ile eklenir (innerHTML yerine textContent).
+// Kartlar: ticker, şirket adı, anlık fiyat, sparkline, risk metrikleri, 2026 tahmini içerir.
+function mkCard(s, idx){
+  const color = RC[s.category_level];
+  const co = CO[s.ticker] || s.ticker;
+  const px = s.current_price.toLocaleString("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const up = s.sparkline && s.sparkline.length > 1 && s.sparkline[s.sparkline.length-1] >= s.sparkline[0];
+
+  const el = document.createElement("div");
+  el.className = "card c-in";
+  el.dataset.l = String(s.category_level);
+  el.style.animationDelay = `${idx*25}ms`;
+
+  /* top color bar */
+  const bar = document.createElement("div");
+  bar.style.cssText = "position:absolute;top:0;left:0;right:0;height:2px;background:" + color;
+  el.appendChild(bar);
+
+  /* header row */
+  const head = document.createElement("div");
+  head.style.cssText = "display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.7rem";
+  const ticker = document.createElement("div");
+  ticker.style.cssText = `font-family:'JetBrains Mono',monospace;font-size:1.08rem;font-weight:700;` +
+    `letter-spacing:.04em;position:relative;z-index:1;color:${color}`;
+  ticker.textContent = s.ticker;
+  const badge = document.createElement("div");
+  badge.style.cssText = `font-size:.58rem;font-weight:600;letter-spacing:.08em;padding:.18rem .48rem;` +
+    `position:relative;z-index:1;color:${color};border:1px solid ${color}40;background:${color}1a`;
+  badge.textContent = s.category_sub;
+  head.appendChild(ticker);
+  head.appendChild(badge);
+  el.appendChild(head);
+
+  /* company */
+  const coDiv = document.createElement("div");
+  coDiv.style.cssText = "font-size:.73rem;color:var(--text-2);font-weight:300;margin-bottom:.7rem;" +
+    "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1";
+  coDiv.textContent = co;
+  el.appendChild(coDiv);
+
+  /* price */
+  const priceDiv = document.createElement("div");
+  priceDiv.style.cssText = "font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:700;" +
+    "color:var(--text-1);margin-bottom:.7rem;position:relative;z-index:1";
+  const sym = document.createElement("em");
+  sym.style.cssText = "font-style:normal;font-size:.78rem;color:var(--text-2);margin-right:.12rem";
+  sym.textContent = "₺";
+  priceDiv.appendChild(sym);
+  priceDiv.appendChild(document.createTextNode(px));
+  el.appendChild(priceDiv);
+
+  /* sparkline (built from numbers, sanitized via DOMPurify as extra safety) */
+  const sparkDiv = document.createElement("div");
+  sparkDiv.style.cssText = "height:34px;margin-bottom:.7rem;position:relative;z-index:1";
+  if(s.sparkline && s.sparkline.length > 1){
+    const svgStr = buildSparkSVG(s.sparkline, color, up);
+    sparkDiv.innerHTML = DOMPurify.sanitize(svgStr, {USE_PROFILES:{svg:true}});
+  }
+  el.appendChild(sparkDiv);
+
+  /* Metrik ızgarası: 2 sütunlu grid — Volatilite ve 2026 Tahmini */
+  const meta = document.createElement("div");
+  meta.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:.35rem;position:relative;z-index:1";
+
+  // 2026 yıl sonu tahmini: backend'den gelen year_end_forecast değeri formatlanır
+  const forecastVal = s.year_end_forecast != null
+    ? `₺${s.year_end_forecast.toLocaleString("tr-TR",{minimumFractionDigits:2})}`
+    : "—";
+  // Tahminin mevcut fiyata göre yüzde değişimi: (tahmin - güncel) / güncel × 100
+  const forecastChg = (s.year_end_forecast != null && s.current_price)
+    ? ((s.year_end_forecast - s.current_price) / s.current_price * 100)
+    : null;
+  // Pozitif tahmin → yeşil (r1), negatif → kırmızı (r4)
+  const forecastColor = forecastChg == null ? "var(--text-2)" : forecastChg >= 0 ? "var(--r1)" : "var(--r4)";
+  const forecastChgStr = forecastChg != null ? ` (${forecastChg>=0?"+":""}${forecastChg.toFixed(1)}%)` : "";
+  [
+    ["Volatilite", `${(s.volatility*100).toFixed(1)}%`, "var(--text-2)"],
+    ["2026 Tahmini", forecastVal + forecastChgStr, forecastColor],
+  ].forEach(([lbl, val, clr])=>{
+    const cm = document.createElement("div");
+    cm.style.cssText = "display:flex;flex-direction:column;gap:.08rem";
+    const l = document.createElement("span");
+    l.style.cssText = "font-size:.57rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)";
+    l.textContent = lbl;
+    const v = document.createElement("span");
+    v.style.cssText = `font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:500;color:${clr}`;
+    v.textContent = val;
+    cm.appendChild(l); cm.appendChild(v);
+    meta.appendChild(cm);
+  });
+  el.appendChild(meta);
+
+  /* Risk skoru çubuğu: 0–1 arası risk_score değeri bar genişliği olarak gösterilir (% cinsinden) */
+  const scoreRow = document.createElement("div");
+  scoreRow.style.cssText = "margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--border-dim);" +
+    "display:flex;align-items:center;gap:.5rem;position:relative;z-index:1";
+  const scoreLbl = document.createElement("span");
+  scoreLbl.style.cssText = "font-size:.57rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)";
+  scoreLbl.textContent = "Risk";
+  const track = document.createElement("div");
+  track.style.cssText = "flex:1;height:2px;background:var(--border-dim);position:relative";
+  const fill = document.createElement("div");
+  // Dolgu genişliği: risk_score [0,1] → [0%,100%] dönüşümü
+  fill.style.cssText = `position:absolute;top:0;left:0;height:100%;width:${(s.risk_score*100).toFixed(1)}%;background:${color}`;
+  track.appendChild(fill);
+  const scoreVal = document.createElement("span");
+  scoreVal.style.cssText = "font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-2)";
+  scoreVal.textContent = s.risk_score.toFixed(3);
+  scoreRow.appendChild(scoreLbl); scoreRow.appendChild(track); scoreRow.appendChild(scoreVal);
+  el.appendChild(scoreRow);
+
+  // Karta tıklanınca detay overlay'i açılır (tahmin grafiği + tüm metrikler)
+  el.addEventListener("click", ()=>openDetail(s));
+  return el;
+}
+
+/* Tüm kartları ızgaraya (grid) ekler; her render öncesi önceki kartlar temizlenir */
+function renderCards(data){
+  const g = document.getElementById("grid");
+  g.textContent = "";
+  data.forEach((s,i)=>g.appendChild(mkCard(s,i)));
+}
+
+/* ── ARAMA VE FİLTRELEME ── */
+let searchQ = "";
+const searchInput = document.getElementById("search-input");
+const searchClear = document.getElementById("search-clear");
+
+// Kullanıcı her karakter girerken canlı arama yapar; temizle butonu görünürlüğü güncellenir
+searchInput.addEventListener("input", ()=>{
+  searchQ = searchInput.value.trim().toLowerCase();
+  searchClear.classList.toggle("visible", searchQ.length > 0);
+  applyFilters();
+});
+
+function clearSearch(){
+  searchInput.value = "";
+  searchQ = "";
+  searchClear.classList.remove("visible");
+  searchInput.focus();
+  applyFilters();
+}
+
+// Kategori filtresi (activeF) ve arama metni (searchQ) birlikte uygulanır
+// Ticker kodu veya şirket adında arama desteklenir
+function applyFilters(){
+  let result = allData;
+  // Kategori filtresi: "all" seçiliyse tüm hisseler, aksi halde sadece seçilen seviye
+  if(activeF !== "all") result = result.filter(s=>String(s.category_level)===activeF);
+  // Metin araması: büyük/küçük harf duyarsız, ticker ve şirket adında eşleşme
+  if(searchQ){
+    result = result.filter(s=>
+      s.ticker.toLowerCase().includes(searchQ) ||
+      (CO[s.ticker]||"").toLowerCase().includes(searchQ)
+    );
+  }
+  renderCards(result);
+  document.getElementById("no-results").style.display = result.length === 0 ? "block" : "none";
+}
+
+/* Kategori filtre butonları: data-f="1/2/3/4/all" özelliğine göre activeF güncellenir */
+document.querySelectorAll(".fbtn").forEach(b=>{
+  if(!b.dataset.f) return; // data-f özelliği olmayan butonlar (Excel, Eşit Ağırlık vs.) atlanır
+  b.addEventListener("click",()=>{
+    activeF = b.dataset.f;
+    document.querySelectorAll(".fbtn[data-f]").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    applyFilters();
+  });
+});
+
+/* Stats — arayüzden kaldırıldı, fonksiyon boş tutuldu */
+function renderStats(data){}
+
+/* ── RİSK SIRALAMA TABLOSU ── */
+// Tüm hisseleri risk skoruna göre (en yüksekten en düşüğe) sıralar.
+// Her kategori grubu için başlık + yatay bar grafik oluşturulur.
+// Bar genişliği: hissenin risk skoru / grup içindeki maksimum risk skoru × %100
+function renderRank(data){
+  const sorted=[...data].sort((a,b)=>b.risk_score-a.risk_score); // en riskli üstte
+  const wrap=document.getElementById("rank-wrap");
+  wrap.textContent="";
+
+  const chart=document.createElement("div");
+  chart.className="rchart";
+
+  const CAT_ORDER=[4,3,2,1];
+  const CAT_LABELS={
+    4:"Güvenilmez · Agresif",
+    3:"Az Güvenilir · Dinamik",
+    2:"Güvenilir · Dengeli",
+    1:"Çok Güvenilir · Defansif",
+  };
+
+  let animIdx=0;
+  CAT_ORDER.forEach(level=>{
+    const group=sorted.filter(s=>s.category_level===level);
+    if(!group.length) return;
+    const color=RC[level];
+
+    /* category header */
+    const hdr=document.createElement("div");
+    hdr.className="rch";
+    const dot=document.createElement("span");
+    dot.className="rch-dot";
+    dot.style.background=color;
+    dot.style.boxShadow=`0 0 6px ${color}80`;
+    const lbl=document.createElement("span");
+    lbl.className="rch-lbl";
+    lbl.style.color=color;
+    lbl.textContent=CAT_LABELS[level];
+    const line=document.createElement("span");
+    line.className="rch-line";
+    line.style.background=`${color}28`;
+    const cnt=document.createElement("span");
+    cnt.className="rch-cnt";
+    cnt.style.color=color;
+    cnt.textContent=`${group.length} hisse`;
+    hdr.appendChild(dot);hdr.appendChild(lbl);hdr.appendChild(line);hdr.appendChild(cnt);
+    chart.appendChild(hdr);
+
+    /* bars */
+    group.forEach(s=>{
+      const row=document.createElement("div");
+      row.className="rr";
+
+      /* label */
+      const rl=document.createElement("div");
+      rl.className="rr-lbl";
+      const tk=document.createElement("span");
+      tk.className="rr-ticker";
+      tk.style.color=color;
+      tk.textContent=s.ticker;
+      const co=document.createElement("span");
+      co.className="rr-co";
+      co.textContent=CO[s.ticker]||"";
+      rl.appendChild(tk);rl.appendChild(co);
+
+      /* bar */
+      const track=document.createElement("div");
+      track.className="rr-track";
+      const fill=document.createElement("div");
+      fill.className="rr-fill";
+      fill.style.background=`linear-gradient(90deg,${color},${color}60)`;
+      track.appendChild(fill);
+
+      /* score */
+      const sc=document.createElement("div");
+      sc.className="rr-score";
+      sc.textContent=s.risk_score.toFixed(3);
+
+      row.appendChild(rl);row.appendChild(track);row.appendChild(sc);
+      chart.appendChild(row);
+
+      /* Bar animasyonu: her satır sırayla genişler (staggered animasyon).
+         risk_score [0,1] → bar genişliği [0%,100%] olarak çevrilir. */
+      const pct=(s.risk_score*100).toFixed(2)+"%";
+      setTimeout(()=>{fill.style.width=pct;}, 80+animIdx*18); // Her bar 18ms gecikmeli açılır
+      animIdx++;
+    });
+  });
+
+  wrap.appendChild(chart);
+}
+
+/* ── HİSSE DETAY OVERLAY ── */
+// Karta tıklanınca tam ekran overlay açılır.
+// Metrikler hemen gösterilir; tahmin grafiği /api/forecast/{ticker} çağrısıyla async yüklenir.
+function openDetail(s){
+  const color=RC[s.category_level]; // Kategoriye göre vurgu rengi
+  // Overlay başlık ve temel metrikleri doldur
+  document.getElementById("dt-ticker").textContent=s.ticker;
+  document.getElementById("dt-ticker").style.color=color;
+  document.getElementById("dt-co").textContent=CO[s.ticker]||s.ticker;
+  document.getElementById("dm-price").textContent=`₺${s.current_price.toLocaleString("tr-TR",{minimumFractionDigits:2})}`;
+  document.getElementById("dm-vol").textContent=`${(s.volatility*100).toFixed(2)}%`; // % cinsine çevir
+  document.getElementById("dm-dd").textContent=`${(s.max_drawdown*100).toFixed(2)}%`;
+  document.getElementById("dm-score").textContent=s.risk_score.toFixed(4);
+  document.getElementById("dm-cat").textContent=s.category;
+  document.getElementById("dm-cat").style.color=color;
+  const fmt=v=>v!=null?`₺${v.toLocaleString("tr-TR",{minimumFractionDigits:2})}`:"—";
+  // 52 haftalık aralık: son 252 işlem gününün en yüksek ve en düşük kapanış fiyatı
+  document.getElementById("dm-52w-tip").textContent=
+    `52 Hafta En Yüksek: ${fmt(s.high_52w)}  ·  52 Hafta En Düşük: ${fmt(s.low_52w)}`;
+  document.getElementById("dye-price").textContent="—";
+  document.getElementById("dye-chg").textContent="";
+
+  /* Grafik yüklenene kadar animasyonlu nokta göster */
+  const fc=document.getElementById("fc-chart");
+  fc.textContent="";
+  const dots=document.createElement("div");
+  dots.className="dots";
+  for(let i=0;i<3;i++){const d=document.createElement("div");d.className="dot";dots.appendChild(d);}
+  fc.appendChild(dots);
+
+  document.getElementById("overlay").classList.add("open");
+  document.body.style.overflow="hidden";
+
+  fetch(`/api/forecast/${encodeURIComponent(s.ticker)}`)
+    .then(r=>r.json())
+    .then(d=>renderForecast(d,s,color))
+    .catch(()=>{
+      fc.textContent="Tahmin verisi yüklenemedi.";
+      fc.style.cssText="display:flex;align-items:center;justify-content:center;height:280px;color:#ff4444;font-size:.85rem";
+    });
+}
+
+/* ── TAHMİN GRAFİĞİ ── */
+// Üç katmanlı Plotly çizgi grafiği:
+//   Gri  → Tarihsel gerçek fiyat (10 yıl)
+//   Mavi → Backtest: modelin test kümesindeki tahminleri (doğrulama)
+//   Sarı → 2026 tahmini: yinelemeli Ridge Regression çıktısı
+// dragmode:"zoom" ile kullanıcı zaman aralığını yakınlaştırabilir (sadece bu grafik).
+// Önceki Plotly instance'ı purge edilmeden yenisi eklenmez (DOM kirliliği önlenir).
+function renderForecast(d,s,color){
+  const fcEl = document.getElementById("fc-chart");
+  Plotly.purge(fcEl);   // Önceki grafiği ve event listener'larını temizle
+  fcEl.textContent = "";
+  Plotly.newPlot("fc-chart",[
+    {
+      name:"Tarihsel Fiyat",
+      x:d.hist_dates,y:d.hist_prices,type:"scatter",mode:"lines",
+      line:{color:"rgba(106,154,176,.55)",width:1.5},
+      hovertemplate:"<b>%{x}</b><br>₺%{y:.2f}<extra>Gerçek</extra>",
+    },
+    {
+      name:"Backtest (Model)",
+      x:d.backtest_dates,y:d.backtest_prices,type:"scatter",mode:"lines",
+      line:{color:"#00d4ff",width:1.8,dash:"dot"},
+      hovertemplate:"<b>%{x}</b><br>₺%{y:.2f}<extra>Backtest</extra>",
+    },
+    {
+      name:"2026 Tahmini",
+      x:d.forecast_dates,y:d.forecast_prices,type:"scatter",mode:"lines",
+      line:{color:"#f0c040",width:2.2,dash:"dash"},
+      hovertemplate:"<b>%{x}</b><br>₺%{y:.2f}<extra>Tahmin</extra>",
+    },
+  ],{
+    height:360,margin:{l:70,r:30,t:15,b:50},
+    dragmode:"zoom",
+    paper_bgcolor:"transparent",plot_bgcolor:"transparent",
+    xaxis:{gridcolor:"rgba(0,180,230,.05)",color:"#2e5060",tickfont:{family:"JetBrains Mono",size:10,color:"#2e5060"}},
+    yaxis:{
+      title:{text:"₺ Fiyat",font:{size:10,color:"#2e5060",family:"JetBrains Mono"}},
+      gridcolor:"rgba(0,180,230,.05)",color:"#2e5060",
+      tickfont:{family:"JetBrains Mono",size:10,color:"#2e5060"},tickprefix:"₺",
+    },
+    legend:{font:{family:"Exo 2",size:11,color:"#6a9ab0"},bgcolor:"transparent"},
+    hoverlabel:{bgcolor:"#0d1a2d",bordercolor:color,font:{family:"JetBrains Mono",size:11,color:"#d8eef5"}},
+    shapes:[{
+      type:"line",
+      x0:d.hist_dates[d.hist_dates.length-1],x1:d.hist_dates[d.hist_dates.length-1],
+      y0:0,y1:1,yref:"paper",
+      line:{color:"rgba(240,192,64,.25)",width:1,dash:"dot"},
+    }],
+  },{responsive:true,displayModeBar:true,displaylogo:false,scrollZoom:true,
+    modeBarButtonsToRemove:["select2d","lasso2d","autoScale2d","toggleSpikelines","hoverCompareCartesian","hoverClosestCartesian"],
+    modeBarButtonsToAdd:[],
+  });
+
+  if(d.year_end_forecast){
+    document.getElementById("dye-price").textContent=
+      `₺${d.year_end_forecast.toLocaleString("tr-TR",{minimumFractionDigits:2})}`;
+    const chg=(d.year_end_forecast-s.current_price)/s.current_price*100;
+    const el=document.getElementById("dye-chg");
+    el.textContent=`${chg>=0?"+":""}${chg.toFixed(1)}% mevcut fiyattan`;
+    el.style.color=chg>=0?"#00ff7f":"#ff3a3a";
+  }
+}
+
+function closeDetail(){
+  document.getElementById("overlay").classList.remove("open");
+  document.body.style.overflow="";
+  const fc = document.getElementById("fc-chart");
+  Plotly.purge(fc);
+  fc.textContent = "";
+}
+function overlayClick(e){if(e.target===document.getElementById("overlay"))closeDetail();}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDetail();});
+
+/* ── EXCEL DIŞA AKTARMA ── */
+// SheetJS kütüphanesi ile risk metriklerini .xlsx formatında indirir.
+// Tüm hisseler, risk skoru, kategori ve tahmin değerleri tabloya eklenir.
+function exportExcel(){
+  if(!allData.length) return;
+  const now = new Date();
+  const tarih = now.toLocaleDateString("tr-TR");
+  const saat  = now.toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+
+  const rows = allData.map(s=>({
+    "Hisse"            : s.ticker,
+    "Şirket Adı"       : CO[s.ticker]||s.ticker,
+    "Güncel Fiyat (₺)" : s.current_price,
+    "Volatilite (%)"   : parseFloat((s.volatility*100).toFixed(2)),
+    "Maks. Drawdown (%)": parseFloat((s.max_drawdown*100).toFixed(2)),
+    "Risk Skoru"       : s.risk_score,
+    "Kategori"         : s.category,
+    "Alt Kategori"     : s.category_sub,
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  /* sütun genişlikleri */
+  ws["!cols"] = [
+    {wch:8},{wch:28},{wch:16},{wch:14},{wch:17},{wch:12},{wch:16},{wch:14}
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "BIST30 Risk Analizi");
+
+  /* bilgi sayfası */
+  const info = XLSX.utils.aoa_to_sheet([
+    ["BIST30 Risk Portalı"],
+    ["Oluşturulma Tarihi", `${tarih} ${saat}`],
+    ["Veri Kaynağı", "Yahoo Finance (Canlı)"],
+    ["Risk Metodolojisi", "Volatilite %60 + Maks. Drawdown %40 (Min-Max Normalize)"],
+    ["Tahmin Modeli", "Ridge Regression (10 Yıllık Geçmiş Veri)"],
+    [],
+    ["Bu dosya akademik amaçlı üretilmiştir. Yatırım tavsiyesi değildir."],
+  ]);
+  XLSX.utils.book_append_sheet(wb, info, "Bilgi");
+
+  XLSX.writeFile(wb, `BIST30_Risk_${tarih.replace(/\./g,"-")}.xlsx`);
+}
+
+/* ── YENİLEME ── */
+// Manuel yenileme: /api/refresh ile backend'e yeni hesaplama başlatılır,
+// ardından pollUntilReady ile sonuç beklenir ve arayüz güncellenir.
+async function triggerRefresh(){
+  const btn=document.getElementById("refresh-btn");
+  if(btn.classList.contains("spinning")) return; // Zaten yenileme devam ediyorsa tekrar başlatma
+  btn.classList.add("spinning");
+  document.getElementById("upd").textContent="YENİLENİYOR...";
+  try{
+    await fetch("/api/refresh");   // Backend'e yeni hesaplama komutu gönder
+    await pollUntilReady();        // Hesaplama bitene kadar bekle
+  }catch(_){
+    document.getElementById("upd").textContent="HATA — TEKRAR DENEYİN";
+  }
+  btn.classList.remove("spinning");
+}
+
+// 2 saniyede bir /api/status sorgusu yaparak backend'in hazır olmasını bekler.
+// Hazır olunca /api/risk verisini çeker ve tüm bileşenleri yeniden render eder.
+// Maks. 90 deneme (~3 dakika) yapılır.
+async function pollUntilReady(){
+  for(let i=0;i<90;i++){
+    await new Promise(r=>setTimeout(r,2000)); // 2 saniye bekle
+    try{
+      const st=await fetch("/api/status").then(r=>r.json());
+      if(!st.loading && st.ready){
+        const res=await fetch("/api/risk").then(r=>r.json());
+        if(res.data && res.data.length){
+          allData=res.data;
+          document.getElementById("upd").textContent=`SON GÜNCELLEME: ${res.last_update}`;
+          renderStats(allData);
+          applyFilters();      // Kartları yeniden filtrele ve göster
+          renderRank(allData); // Risk sıralama tablosunu güncelle
+          initPortfolio();     // Portföy chip listesini yenile
+          initComparison();    // Karşılaştırma chip listesini yenile
+          return;
+        }
+      }
+    }catch(_){}
+  }
+}
+
+/* Otomatik yenileme: her 30 dakikada bir backend'e yeni veri hesaplat */
+setInterval(()=>triggerRefresh(), 30*60*1000);
+
+/* ══════════════════════════════════════════
+   PORTFÖY SİMÜLATÖRÜ
+   ------------------------------------------
+   Kullanıcı 2-10 hisse seçer, her birine ağırlık (%  ) atar.
+   Backend'e gönderilen ağırlıklar normalize edilir (toplamı 1'e çevrilir).
+   Backend kovaryans matrisi ile portföy volatilitesini hesaplar:
+     σ_p = √(w^T × Σ × w)
+   Sonuçlar: yıllık volatilite, maks. drawdown, ağırlıklı risk skoru, kategori ve grafik.
+══════════════════════════════════════════ */
+let portSel = new Set(); // Seçili hisse ticker kodları
+
+// Portföy chip listesini oluşturur. Event delegation: her chip için ayrı listener yerine
+// parent wrapper'a tek listener atanır; tıklanan elementin chip olup olmadığı kontrol edilir.
+// Bu yöntem, chip listesi yenilendiğinde listener'ın birikmesini önler (wrap.onclick = overwrite).
+function initPortfolio(){
+  const wrap = document.getElementById("port-chips");
+  wrap.textContent = "";
+  allData.forEach(s=>{
+    const c = document.createElement("button");
+    c.type = "button";
+    c.className = "chip";
+    c.setAttribute("data-l", String(s.category_level));
+    c.setAttribute("data-ticker", s.ticker);
+    c.textContent = s.ticker;
+    wrap.appendChild(c);
+  });
+  wrap.onclick = e=>{
+    const chip = e.target.closest(".chip[data-ticker]");
+    if(!chip) return;
+    togglePort(chip.getAttribute("data-ticker"), chip);
+  };
+}
+
+function resetPortfolio(){
+  portSel.clear();
+  document.querySelectorAll("#port-chips .chip").forEach(c=>c.classList.remove("on"));
+  document.getElementById("port-count").textContent = "0 / 10";
+  document.getElementById("port-selected-wrap").style.display = "none";
+  document.getElementById("port-results").style.display = "none";
+  document.getElementById("port-results").textContent = "";
+}
+
+function togglePort(ticker, chip){
+  if(portSel.has(ticker)){
+    portSel.delete(ticker); chip.classList.remove("on");
+  } else {
+    if(portSel.size >= 10) return;
+    portSel.add(ticker); chip.classList.add("on");
+  }
+  document.getElementById("port-count").textContent = `${portSel.size} / 10`;
+  renderPortSelected();
+}
+
+function renderPortSelected(){
+  const list = document.getElementById("port-sel-list");
+  const wrap = document.getElementById("port-selected-wrap");
+  wrap.style.display = portSel.size > 0 ? "block" : "none";
+  list.textContent = "";
+  // clear old results so Plotly layer doesn't block buttons
+  const res = document.getElementById("port-results");
+  const pc = document.getElementById("port-chart");
+  if(pc) try{ Plotly.purge(pc); }catch(_){}
+  res.style.display = "none"; res.textContent = "";
+  const eq = portSel.size ? (100/portSel.size).toFixed(1) : 0;
+  portSel.forEach(ticker=>{
+    const s = allData.find(x=>x.ticker===ticker);
+    const color = RC[s.category_level];
+    const row = document.createElement("div"); row.className = "psr";
+    // ticker
+    const tk = document.createElement("div"); tk.className = "psr-tk";
+    tk.style.color = color; tk.textContent = ticker;
+    // bar
+    const bar = document.createElement("div"); bar.className = "psr-bar";
+    const fill = document.createElement("div"); fill.className = "psr-fill";
+    fill.style.background = color; fill.style.width = eq + "%";
+    bar.appendChild(fill);
+    // input
+    const inp = document.createElement("input"); inp.className = "psr-inp";
+    inp.type = "number"; inp.min = 0; inp.max = 100; inp.step = 0.1;
+    inp.value = eq; inp.dataset.ticker = ticker;
+    inp.addEventListener("input", ()=>{ fill.style.width = Math.min(parseFloat(inp.value)||0,100)+"%"; updatePortTotal(); });
+    // remove
+    const rm = document.createElement("button"); rm.className = "psr-rm"; rm.textContent = "✕";
+    rm.addEventListener("click", ()=>{
+      portSel.delete(ticker);
+      document.querySelectorAll("#port-chips .chip").forEach(c=>{ if(c.textContent===ticker) c.classList.remove("on"); });
+      document.getElementById("port-count").textContent = `${portSel.size} / 10`;
+      renderPortSelected();
+    });
+    row.appendChild(tk); row.appendChild(bar); row.appendChild(inp); row.appendChild(rm);
+    list.appendChild(row);
+  });
+  updatePortTotal();
+}
+
+// Ağırlık toplamını hesaplar; %100'e yakınsa yeşil, değilse turuncu gösterir
+function updatePortTotal(){
+  let total = 0;
+  document.querySelectorAll(".psr-inp").forEach(i=>total+=parseFloat(i.value)||0);
+  const el = document.getElementById("port-total");
+  el.textContent = `Toplam: ${total.toFixed(1)}%`;
+  el.style.color = Math.abs(total-100)<0.5 ? "#00ff7f" : "#ffaa00";
+}
+
+// Tüm hisseleri eşit ağırlığa ayarlar: 100% / hisse sayısı
+// Bar genişliğini ve toplam göstergesini günceller, buton kısa süre yeşil yanar (geri bildirim)
+function equalizeWeights(){
+  const inputs = document.querySelectorAll(".psr-inp");
+  if(!inputs.length) return;
+  const eq = (100/inputs.length).toFixed(1);
+  inputs.forEach(inp=>{
+    inp.value = eq;
+    const fill = inp.closest(".psr").querySelector(".psr-fill");
+    if(fill) fill.style.width = eq + "%";
+  });
+  updatePortTotal();
+  // visual feedback
+  const btn = document.querySelector(".port-actions .fbtn");
+  if(btn){ btn.style.borderColor="#00ff7f"; btn.style.color="#00ff7f"; setTimeout(()=>{ btn.style.borderColor=""; btn.style.color=""; },700); }
+}
+
+// Portföy hesaplama isteğini backend'e gönderir.
+// Ticker'lar ve ağırlıklar virgülle ayrılmış string olarak gönderilir.
+// Backend ağırlıkları normalize eder (toplamları 100 olması şart değil).
+async function calcPortfolio(){
+  if(portSel.size < 2){ alert("En az 2 hisse seçin."); return; }
+  const tickers = [...portSel].join(",");
+  const weights = [...document.querySelectorAll(".psr-inp")].map(i=>i.value).join(",");
+  const res = document.getElementById("port-results");
+  res.style.display = "block";
+  res.innerHTML = "";
+  // Hesaplama sırasında animasyonlu yükleme noktaları göster
+  const dots = document.createElement("div"); dots.className = "dots";
+  for(let i=0;i<3;i++){const d=document.createElement("div");d.className="dot";dots.appendChild(d);}
+  res.appendChild(dots);
+  try{
+    const r = await fetch(`/api/portfolio?tickers=${encodeURIComponent(tickers)}&weights=${encodeURIComponent(weights)}`);
+    const data = await r.json();
+    // 503: veri henüz hazır değil (backend hâlâ yüklüyor)
+    if(r.status===503){ throw new Error("Veriler hâlâ yükleniyor — birkaç saniye bekleyip tekrar deneyin."); }
+    if(!r.ok){ throw new Error(data.detail || `HTTP ${r.status}`); }
+    renderPortResults(data);
+  }catch(e){
+    res.textContent = "Hesaplama hatası: " + e.message;
+    res.style.cssText = "color:#ff3a3a;padding:1rem;font-size:.85rem";
+  }
+}
+
+// Portföy analiz sonuçlarını ekrana çizer.
+// 4 metrik kutusu + son 2 yıllık (504 işlem günü) normalize edilmiş portföy değer grafiği.
+// Grafik baz=100 normalize: ilk günün değeri 100 kabul edilir, diğerleri buna göre ölçeklenir.
+function renderPortResults(d){
+  const res = document.getElementById("port-results");
+  res.textContent = "";
+  const color = RC[d.category_level]; // Portföy risk kategorisine göre renk
+
+  // 4 metrik kartı: Volatilite, Drawdown, Risk Skoru, Kategori
+  const mg = document.createElement("div"); mg.className = "port-metrics";
+  [
+    ["Portföy Volatilitesi", (d.portfolio_volatility*100).toFixed(2)+"%"],
+    ["Maks. Drawdown",       (d.max_drawdown*100).toFixed(2)+"%"],
+    ["Ağırlıklı Risk Skoru", d.weighted_risk_score.toFixed(4)],
+    ["Kategori",             d.category],
+  ].forEach(([lbl,val],i)=>{
+    const pm = document.createElement("div"); pm.className = "pm";
+    const l = document.createElement("div"); l.className = "pm-lbl"; l.textContent = lbl;
+    const v = document.createElement("div"); v.className = "pm-val";
+    v.textContent = val;
+    if(i===3) v.style.color = color; // Kategori değeri renkli gösterilir
+    pm.appendChild(l); pm.appendChild(v); mg.appendChild(pm);
+  });
+  res.appendChild(mg);
+
+  // Portföy kümülatif getiri grafiği (Plotly): drag ve zoom devre dışı (statik görünüm)
+  const chartDiv = document.createElement("div"); chartDiv.id = "port-chart";
+  res.appendChild(chartDiv);
+  Plotly.newPlot("port-chart",[{
+    name:"Portföy Değeri",
+    x:d.dates, y:d.values,
+    type:"scatter", mode:"lines",
+    line:{color:color, width:2},
+    fill:"tozeroy", fillcolor:color+"18",
+    hovertemplate:"<b>%{x}</b><br>%{y:.2f}<extra>Portföy (Baz=100)</extra>",
+  }],{
+    height:280, margin:{l:60,r:20,t:20,b:50},
+    dragmode:false,
+    paper_bgcolor:"transparent", plot_bgcolor:"transparent",
+    xaxis:{gridcolor:"rgba(0,180,230,.05)",color:"#2e5060",tickfont:{family:"JetBrains Mono",size:10,color:"#2e5060"},fixedrange:true},
+    yaxis:{title:{text:"Değer (Baz 100)",font:{size:10,color:"#2e5060",family:"JetBrains Mono"}},gridcolor:"rgba(0,180,230,.05)",color:"#2e5060",tickfont:{family:"JetBrains Mono",size:10,color:"#2e5060"},fixedrange:true},
+    hoverlabel:{bgcolor:"#0d1a2d",bordercolor:color,font:{family:"JetBrains Mono",size:11,color:"#d8eef5"}},
+  },{responsive:true,displayModeBar:false,scrollZoom:false});
+}
+
+/* ══════════════════════════════════════════
+   HİSSE KARŞILAŞTIRMA
+   ------------------------------------------
+   Maksimum 4 hisse seçilip radar (örümcek ağı) grafiği ile karşılaştırılır.
+   Eksenler: Risk Skoru, Volatilite, Maks. Drawdown, 52H Yüksek/Düşük Oranı, Tahmini Değişim
+   Her hissenin metrikleri [0,1] aralığına normalize edilerek radar üzerinde gösterilir.
+   Ayrıca altında karşılaştırmalı metrik tablosu oluşturulur.
+══════════════════════════════════════════ */
+let cmpSel = new Set(); // Karşılaştırma için seçili hisseler (maks. 4)
+
+function initComparison(){
+  const wrap = document.getElementById("cmp-chips");
+  wrap.textContent = "";
+  allData.forEach(s=>{
+    const c = document.createElement("button");
+    c.type = "button";
+    c.className = "chip";
+    c.setAttribute("data-l", String(s.category_level));
+    c.setAttribute("data-ticker", s.ticker);
+    c.textContent = s.ticker;
+    wrap.appendChild(c);
+  });
+  wrap.onclick = e=>{
+    const chip = e.target.closest(".chip[data-ticker]");
+    if(!chip) return;
+    toggleCmp(chip.getAttribute("data-ticker"), chip);
+  };
+}
+
+function resetComparison(){
+  cmpSel.clear();
+  document.querySelectorAll("#cmp-chips .chip").forEach(c=>c.classList.remove("on"));
+  document.getElementById("cmp-hint").textContent = "En az 2 hisse seç";
+  document.getElementById("cmp-chart").textContent = "";
+  document.getElementById("cmp-table-wrap").textContent = "";
+}
+
+function toggleCmp(ticker, chip){
+  if(cmpSel.has(ticker)){
+    cmpSel.delete(ticker); chip.classList.remove("on");
+  } else {
+    if(cmpSel.size >= 4) return;
+    cmpSel.add(ticker); chip.classList.add("on");
+  }
+  const hint = document.getElementById("cmp-hint");
+  if(cmpSel.size < 2){
+    hint.textContent = "En az 2 hisse seç";
+    document.getElementById("cmp-chart").textContent = "";
+    document.getElementById("cmp-table-wrap").textContent = "";
+  } else {
+    hint.textContent = "";
+    renderRadar();
+  }
+}
+
+// Radar grafiği: seçili hisselerin risk metriklerini karşılaştırır.
+// Her eksen tüm hisseler içindeki maksimum değere göre 0-100 arasına normalize edilir.
+function renderRadar(){
+  const sel = [...cmpSel].map(t=>allData.find(s=>s.ticker===t)).filter(Boolean);
+  // Normalizasyon tabanları: tüm hisseler içindeki en yüksek değerler
+  const maxVol = Math.max(...allData.map(s=>s.volatility));
+  const maxDD  = Math.max(...allData.map(s=>s.max_drawdown));
+
+  const traces = sel.map(s=>({
+    type:"scatterpolar",
+    r:[
+      +(s.volatility/maxVol*100).toFixed(1),
+      +(s.max_drawdown/maxDD*100).toFixed(1),
+      +(s.risk_score*100).toFixed(1),
+    ],
+    theta:["Volatilite","Maks. Drawdown","Risk Skoru"],
+    name:s.ticker,
+    fill:"toself",
+    opacity:.75,
+    line:{color:RC[s.category_level],width:2},
+    fillcolor:RC[s.category_level]+"28",
+    hovertemplate:"<b>%{theta}</b>: %{r:.1f}<extra>"+s.ticker+"</extra>",
+  }));
+
+  Plotly.newPlot("cmp-chart", traces,{
+    polar:{
+      radialaxis:{visible:true,range:[0,100],tickfont:{family:"JetBrains Mono",size:9,color:"#2e5060"},gridcolor:"rgba(0,180,230,.1)"},
+      angularaxis:{tickfont:{family:"Exo 2",size:12,color:"#6a9ab0"},gridcolor:"rgba(0,180,230,.1)"},
+      bgcolor:"transparent",
+    },
+    paper_bgcolor:"transparent",
+    dragmode:false,
+    legend:{font:{family:"JetBrains Mono",size:11,color:"#6a9ab0"},bgcolor:"transparent"},
+    height:420, margin:{l:60,r:60,t:30,b:30},
+    hoverlabel:{bgcolor:"#0d1a2d",bordercolor:"rgba(0,212,255,.4)",font:{family:"JetBrains Mono",size:11,color:"#d8eef5"}},
+  },{responsive:true,displayModeBar:false,scrollZoom:false});
+
+  // comparison table
+  const tw = document.getElementById("cmp-table-wrap");
+  tw.textContent = "";
+  const table = document.createElement("table"); table.className = "cmp-table";
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  ["Hisse","Şirket","Fiyat","Volatilite","Maks. Drawdown","Risk Skoru","Kategori"].forEach(h=>{
+    const th = document.createElement("th"); th.textContent = h; hr.appendChild(th);
+  });
+  thead.appendChild(hr); table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  sel.forEach(s=>{
+    const tr = document.createElement("tr");
+    [
+      s.ticker,
+      CO[s.ticker]||s.ticker,
+      `₺${s.current_price.toLocaleString("tr-TR",{minimumFractionDigits:2})}`,
+      (s.volatility*100).toFixed(2)+"%",
+      (s.max_drawdown*100).toFixed(2)+"%",
+      s.risk_score.toFixed(4),
+      s.category,
+    ].forEach((val,i)=>{
+      const td = document.createElement("td"); td.textContent = val;
+      if(i===0) td.style.color = RC[s.category_level];
+      if(i===6) td.style.color = RC[s.category_level];
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  tw.appendChild(table);
+}
+
+/* ── VERİ YÜKLEME ── */
+// Sayfa ilk açıldığında backend'i polling ile yoklar (2 sn aralıklarla, maks. 90 deneme).
+// Backend'deki veri hazır olunca tüm bileşenler render edilir ve loader ekranı kapanır.
+// Yükleme mesajları animasyonlu şekilde döner (MSGS dizisinden sırayla).
+const MSGS=[
+  "Canlı veriler yükleniyor...","BIST30 hisseleri indiriliyor...",
+  "Risk metrikleri hesaplanıyor...","Volatilite analizi...",
+  "Drawdown hesaplanıyor...","Ridge Regression modeli...",
+  "Veriler işleniyor...",
+];
+async function loadData(){
+  let n=0;
+  const lmsg=document.getElementById("lmsg");
+  for(;;){
+    try{
+      const st=await fetch("/api/status").then(r=>r.json());
+      // Her 3 denemede bir mesaj değişir (3 × 2sn = 6sn aralıklarla)
+      lmsg.textContent=MSGS[Math.floor(n/3)%MSGS.length];
+      if(st.ready){
+        const res=await fetch("/api/risk").then(r=>r.json());
+        if(!res.loading&&res.data&&res.data.length){
+          allData=res.data; // Global veri deposuna ata
+          document.getElementById("upd").textContent=`SON GÜNCELLEME: ${res.last_update}`;
+          renderStats(allData);
+          applyFilters();      // Hisse kartlarını göster
+          renderRank(allData); // Sıralama tablosunu çiz
+          initPortfolio();     // Portföy chip'lerini oluştur
+          initComparison();    // Karşılaştırma chip'lerini oluştur
+          // Loader ekranını fade-out ile kapat, ana uygulamayı göster
+          const loader=document.getElementById("loader");
+          loader.style.opacity="0";
+          setTimeout(()=>{
+            loader.style.display="none";
+            document.getElementById("app").classList.add("show"); // opacity: 0 → 1 geçişi
+          },620);
+          return;
+        }
+      }
+    }catch(_){}
+    await new Promise(r=>setTimeout(r,2000)); // 2 saniye bekle, tekrar dene
+    if(++n>90){lmsg.textContent="Bağlantı hatası — sayfayı yenileyin.";return;}
+  }
+}
+loadData(); // Sayfa yüklenince hemen başlat
+</script>
+</body>
+</html>
